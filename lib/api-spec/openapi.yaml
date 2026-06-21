@@ -1,0 +1,747 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: LRSTORE LiveChat AI API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: openai
+    description: OpenAI AI chat operations
+  - name: chat
+    description: LiveChat widget and conversation management
+  - name: admin
+    description: Admin dashboard and settings
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  # OpenAI conversation management
+  /openai/conversations:
+    get:
+      operationId: listOpenaiConversations
+      tags: [openai]
+      summary: List all conversations
+      responses:
+        "200":
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OpenaiConversation"
+    post:
+      operationId: createOpenaiConversation
+      tags: [openai]
+      summary: Create a new conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpenaiConversationInput"
+      responses:
+        "201":
+          description: Created conversation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiConversation"
+  /openai/conversations/{id}:
+    get:
+      operationId: getOpenaiConversation
+      tags: [openai]
+      summary: Get conversation with messages
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Conversation with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiConversationWithMessages"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteOpenaiConversation
+      tags: [openai]
+      summary: Delete a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /openai/conversations/{id}/messages:
+    get:
+      operationId: listOpenaiMessages
+      tags: [openai]
+      summary: List messages in a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OpenaiMessage"
+    post:
+      operationId: sendOpenaiMessage
+      tags: [openai]
+      summary: Send a text message and receive a streaming text response
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpenaiMessageInput"
+      responses:
+        "200":
+          description: SSE stream of assistant text chunks
+          content:
+            text/event-stream: {}
+
+  # Widget chat session endpoints (for embeddable widget)
+  /chat/sessions:
+    post:
+      operationId: createChatSession
+      tags: [chat]
+      summary: Start a new widget chat session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatSessionInput"
+      responses:
+        "201":
+          description: Created session with conversation ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSession"
+  /chat/sessions/{sessionId}:
+    get:
+      operationId: getChatSession
+      tags: [chat]
+      summary: Get a chat session with its messages
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Chat session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSessionWithMessages"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /chat/sessions/{sessionId}/messages:
+    post:
+      operationId: sendChatMessage
+      tags: [chat]
+      summary: Send a message in a widget chat session (SSE streaming)
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatMessageInput"
+      responses:
+        "200":
+          description: SSE stream of AI response
+          content:
+            text/event-stream: {}
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  # Widget sites management (admin)
+  /admin/widget-sites:
+    get:
+      operationId: listWidgetSites
+      tags: [admin]
+      summary: List all registered widget sites
+      responses:
+        "200":
+          description: List of widget sites
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WidgetSite"
+    post:
+      operationId: createWidgetSite
+      tags: [admin]
+      summary: Register a new site to embed the widget on
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WidgetSiteInput"
+      responses:
+        "201":
+          description: Created widget site with token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WidgetSite"
+  /admin/widget-sites/{id}:
+    get:
+      operationId: getWidgetSite
+      tags: [admin]
+      summary: Get a widget site by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Widget site
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WidgetSite"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    patch:
+      operationId: updateWidgetSite
+      tags: [admin]
+      summary: Update a widget site configuration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WidgetSiteUpdate"
+      responses:
+        "200":
+          description: Updated widget site
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WidgetSite"
+    delete:
+      operationId: deleteWidgetSite
+      tags: [admin]
+      summary: Delete a widget site
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+  /admin/widget-sites/{id}/regenerate-token:
+    post:
+      operationId: regenerateWidgetToken
+      tags: [admin]
+      summary: Regenerate widget security token
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated site with new token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WidgetSite"
+
+  # Admin settings
+  /admin/settings:
+    get:
+      operationId: getAdminSettings
+      tags: [admin]
+      summary: Get admin settings (AI prompt, business info, etc.)
+      responses:
+        "200":
+          description: Admin settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSettings"
+    patch:
+      operationId: updateAdminSettings
+      tags: [admin]
+      summary: Update admin settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminSettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSettings"
+
+  # Admin chat logs
+  /admin/conversations:
+    get:
+      operationId: listAdminConversations
+      tags: [admin]
+      summary: List all chat sessions for admin review
+      responses:
+        "200":
+          description: List of chat sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminConversationSummary"
+
+  /admin/conversations/{id}:
+    get:
+      operationId: getAdminConversation
+      tags: [admin]
+      summary: Get full conversation log
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Full conversation with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiConversationWithMessages"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  # Dashboard stats
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Get dashboard statistics
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+  # Check invoice/topup status (proxy to lrstore.id)
+  /chat/check-invoice/{invoiceCode}:
+    get:
+      operationId: checkInvoiceStatus
+      tags: [chat]
+      summary: Check topup/invoice status from LRSTORE
+      parameters:
+        - name: invoiceCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invoice status result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceStatus"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    OpenaiConversation:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - createdAt
+
+    OpenaiConversationInput:
+      type: object
+      properties:
+        title:
+          type: string
+      required:
+        - title
+
+    OpenaiMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        conversationId:
+          type: integer
+        role:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - conversationId
+        - role
+        - content
+        - createdAt
+
+    OpenaiMessageInput:
+      type: object
+      properties:
+        content:
+          type: string
+      required:
+        - content
+
+    OpenaiConversationWithMessages:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/OpenaiMessage"
+      required:
+        - id
+        - title
+        - createdAt
+        - messages
+
+    ChatSession:
+      type: object
+      properties:
+        id:
+          type: integer
+        sessionId:
+          type: string
+        visitorName:
+          type: string
+        widgetToken:
+          type: string
+        conversationId:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - sessionId
+        - visitorName
+        - widgetToken
+        - conversationId
+        - createdAt
+
+    ChatSessionInput:
+      type: object
+      properties:
+        visitorName:
+          type: string
+        widgetToken:
+          type: string
+      required:
+        - visitorName
+        - widgetToken
+
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        role:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - role
+        - content
+        - createdAt
+
+    ChatSessionWithMessages:
+      type: object
+      properties:
+        id:
+          type: integer
+        sessionId:
+          type: string
+        visitorName:
+          type: string
+        conversationId:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+      required:
+        - id
+        - sessionId
+        - visitorName
+        - conversationId
+        - createdAt
+        - messages
+
+    ChatMessageInput:
+      type: object
+      properties:
+        content:
+          type: string
+      required:
+        - content
+
+    WidgetSite:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        domain:
+          type: string
+        widgetToken:
+          type: string
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - domain
+        - widgetToken
+        - isActive
+        - createdAt
+
+    WidgetSiteInput:
+      type: object
+      properties:
+        name:
+          type: string
+        domain:
+          type: string
+      required:
+        - name
+        - domain
+
+    WidgetSiteUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        domain:
+          type: string
+        isActive:
+          type: boolean
+
+    AdminSettings:
+      type: object
+      properties:
+        id:
+          type: integer
+        systemPrompt:
+          type: string
+        businessName:
+          type: string
+        businessDescription:
+          type: string
+        welcomeMessage:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - systemPrompt
+        - businessName
+        - businessDescription
+        - welcomeMessage
+        - updatedAt
+
+    AdminSettingsUpdate:
+      type: object
+      properties:
+        systemPrompt:
+          type: string
+        businessName:
+          type: string
+        businessDescription:
+          type: string
+        welcomeMessage:
+          type: string
+
+    AdminConversationSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        visitorName:
+          type: string
+        messageCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - visitorName
+        - messageCount
+        - createdAt
+
+    AdminStats:
+      type: object
+      properties:
+        totalConversations:
+          type: integer
+        totalMessages:
+          type: integer
+        activeWidgetSites:
+          type: integer
+        conversationsToday:
+          type: integer
+      required:
+        - totalConversations
+        - totalMessages
+        - activeWidgetSites
+        - conversationsToday
+
+    InvoiceStatus:
+      type: object
+      properties:
+        invoiceCode:
+          type: string
+        status:
+          type: string
+        found:
+          type: boolean
+      required:
+        - invoiceCode
+        - status
+        - found

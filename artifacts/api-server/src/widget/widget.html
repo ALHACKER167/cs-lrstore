@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LRSTORE Chat</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+  canvas#snow { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+  #header { background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%); padding: 12px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #1e3a8a; position: relative; z-index: 1; flex-shrink: 0; }
+  #header .avatar { width: 34px; height: 34px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; border: 1.5px solid rgba(255,255,255,0.3); }
+  #header .info h3 { font-size: 14px; font-weight: 600; color: #fff; }
+  #header .info p { font-size: 11px; color: #93c5fd; }
+  #header .status-dot { width: 8px; height: 8px; background: #22c55e; border-radius: 50%; margin-left: auto; box-shadow: 0 0 6px #22c55e; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
+  #messages { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; position: relative; z-index: 1; scroll-behavior: smooth; }
+  #messages::-webkit-scrollbar { width: 4px; }
+  #messages::-webkit-scrollbar-track { background: transparent; }
+  #messages::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+  .msg { display: flex; gap: 8px; max-width: 88%; animation: fadeUp 0.25s ease; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:translateY(0);} }
+  .msg.user { flex-direction: row-reverse; margin-left: auto; }
+  .bubble { padding: 9px 13px; border-radius: 14px; font-size: 13px; line-height: 1.55; word-break: break-word; }
+  .msg.assistant .bubble { background: #1e293b; border: 1px solid #2d3f55; border-radius: 4px 14px 14px 14px; }
+  .msg.user .bubble { background: linear-gradient(135deg, #1e40af, #2563eb); border-radius: 14px 4px 14px 14px; color: #fff; }
+  .msg-time { font-size: 10px; color: #475569; margin-top: 3px; }
+  #input-area { padding: 10px 12px; background: #0f172a; border-top: 1px solid #1e293b; display: flex; gap: 8px; align-items: flex-end; position: relative; z-index: 1; flex-shrink: 0; }
+  #msg-input { flex: 1; background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 9px 13px; color: #e2e8f0; font-size: 13px; resize: none; min-height: 38px; max-height: 96px; outline: none; font-family: inherit; transition: border-color 0.2s; }
+  #msg-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
+  #msg-input::placeholder { color: #475569; }
+  #send-btn { background: linear-gradient(135deg, #1e40af, #2563eb); color: #fff; border: none; border-radius: 10px; width: 38px; height: 38px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; }
+  #send-btn:hover:not(:disabled) { transform: scale(1.05); background: linear-gradient(135deg,#2563eb,#3b82f6); }
+  #send-btn:disabled { background: #1e293b; cursor: not-allowed; opacity: 0.5; }
+  .typing { display: flex; gap: 5px; align-items: center; padding: 10px 13px; }
+  .typing span { width: 6px; height: 6px; background: #64748b; border-radius: 50%; animation: bounce 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,80%,100%{transform:scale(0.7);opacity:0.4;} 40%{transform:scale(1.1);opacity:1;} }
+  #name-form { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding: 28px 24px; gap: 16px; position: relative; z-index: 1; }
+  .name-form-logo { width: 56px; height: 56px; background: linear-gradient(135deg,#1e40af,#3b82f6); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; color: #fff; margin-bottom: 4px; box-shadow: 0 4px 20px rgba(59,130,246,0.4); }
+  #name-form h2 { font-size: 18px; font-weight: 700; color: #fff; text-align: center; }
+  #name-form p { font-size: 13px; color: #94a3b8; text-align: center; line-height: 1.5; }
+  #name-input { width: 100%; background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 11px 14px; color: #e2e8f0; font-size: 14px; outline: none; transition: border-color 0.2s; }
+  #name-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
+  #name-input::placeholder { color: #475569; }
+  #start-btn { width: 100%; background: linear-gradient(135deg, #1e40af, #2563eb); color: #fff; border: none; border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; letter-spacing: 0.01em; }
+  #start-btn:hover:not(:disabled) { background: linear-gradient(135deg,#2563eb,#3b82f6); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(59,130,246,0.4); }
+  #start-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .error-msg { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; border-radius: 8px; padding: 8px 12px; font-size: 12px; text-align: center; }
+</style>
+</head>
+<body>
+<canvas id="snow"></canvas>
+
+<div id="header">
+  <div class="avatar">LR</div>
+  <div class="info">
+    <h3>LRSTORE Support</h3>
+    <p>AI Assistant — Aktif</p>
+  </div>
+  <div class="status-dot"></div>
+</div>
+
+<div id="name-form">
+  <div class="name-form-logo">LR</div>
+  <h2>Selamat Datang!</h2>
+  <p>Silakan masukkan nama Anda untuk memulai chat dengan AI kami</p>
+  <input id="name-input" type="text" placeholder="Nama Anda..." maxlength="50" />
+  <button id="start-btn" onclick="startChat()">Mulai Chat</button>
+</div>
+
+<div id="messages" style="display:none"></div>
+<div id="input-area" style="display:none">
+  <textarea id="msg-input" placeholder="Ketik pesan..." rows="1" onkeydown="handleKey(event)"></textarea>
+  <button id="send-btn" onclick="sendMessage()" title="Kirim">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+  </button>
+</div>
+
+<script>
+// ── Snow ──────────────────────────────────────────────
+(function(){
+  var c = document.getElementById('snow');
+  var ctx = c.getContext('2d');
+  var flakes = [];
+  var N = 70;
+  function resize(){ c.width=window.innerWidth; c.height=window.innerHeight; }
+  resize();
+  window.addEventListener('resize', resize);
+  for(var i=0;i<N;i++) flakes.push({
+    x:Math.random()*window.innerWidth,
+    y:Math.random()*window.innerHeight,
+    r:Math.random()*2.2+0.5,
+    sp:Math.random()*0.5+0.2,
+    dr:(Math.random()-.5)*0.25,
+    op:Math.random()*0.4+0.12,
+    a:Math.random()*Math.PI*2
+  });
+  function draw(){
+    ctx.clearRect(0,0,c.width,c.height);
+    for(var f of flakes){
+      ctx.beginPath();
+      ctx.arc(f.x,f.y,f.r,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,255,255,'+f.op+')';
+      ctx.fill();
+      f.y+=f.sp; f.x+=f.dr+Math.sin(f.a)*0.18; f.a+=0.007;
+      if(f.y>c.height+4){f.y=-4;f.x=Math.random()*c.width;}
+      if(f.x>c.width+4)f.x=-4;
+      if(f.x<-4)f.x=c.width+4;
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ── Chat ──────────────────────────────────────────────
+const TOKEN = '__WIDGET_TOKEN__';
+const API = window.location.origin + '/api';
+let sessionId = null;
+
+function fmt(d){ return new Date(d).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}); }
+function esc(t){ return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
+
+function appendMsg(role, content, time){
+  var msgs = document.getElementById('messages');
+  var div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = '<div><div class="bubble">'+esc(content)+'</div><div class="msg-time">'+(time?fmt(time):fmt(new Date()))+'</div></div>';
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+async function startChat(){
+  var nameInput = document.getElementById('name-input');
+  var name = nameInput.value.trim();
+  if(!name){ nameInput.focus(); return; }
+  var btn = document.getElementById('start-btn');
+  btn.disabled = true;
+  btn.textContent = 'Menghubungkan...';
+  try{
+    var res = await fetch(API+'/chat/sessions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({visitorName:name,widgetToken:TOKEN})
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    var session = await res.json();
+    sessionId = session.sessionId;
+
+    document.getElementById('name-form').style.display = 'none';
+    document.getElementById('messages').style.display = 'flex';
+    document.getElementById('input-area').style.display = 'flex';
+
+    var sd = await fetch(API+'/chat/sessions/'+sessionId).then(r=>r.json());
+    sd.messages.forEach(function(m){ appendMsg(m.role, m.content, m.createdAt); });
+    document.getElementById('msg-input').focus();
+  } catch(e){
+    btn.disabled = false;
+    btn.textContent = 'Mulai Chat';
+    var p = document.createElement('p');
+    p.className = 'error-msg';
+    p.textContent = 'Gagal terhubung. Coba lagi.';
+    document.getElementById('name-form').appendChild(p);
+    setTimeout(function(){ if(p.parentNode) p.remove(); }, 3000);
+  }
+}
+
+function handleKey(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendMessage(); } }
+
+async function sendMessage(){
+  if(!sessionId) return;
+  var input = document.getElementById('msg-input');
+  var content = input.value.trim();
+  if(!content) return;
+  input.value = ''; input.style.height = 'auto';
+  document.getElementById('send-btn').disabled = true;
+  appendMsg('user', content);
+
+  var msgs = document.getElementById('messages');
+  var tDiv = document.createElement('div');
+  tDiv.className='msg assistant'; tDiv.id='typing';
+  tDiv.innerHTML='<div><div class="bubble typing"><span></span><span></span><span></span></div></div>';
+  msgs.appendChild(tDiv); msgs.scrollTop=msgs.scrollHeight;
+
+  try{
+    var res = await fetch(API+'/chat/sessions/'+sessionId+'/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({content:content})
+    });
+    var t = document.getElementById('typing'); if(t) t.remove();
+
+    if(!res.ok){
+      var errText = await res.text().catch(()=>'Error');
+      appendMsg('assistant','Maaf, terjadi kesalahan pada AI. Silakan coba lagi.',null);
+      document.getElementById('send-btn').disabled=false;
+      document.getElementById('msg-input').focus();
+      return;
+    }
+
+    var reader=res.body.getReader(), dec=new TextDecoder();
+    var rDiv=null, rBubble=null, full='';
+    while(true){
+      var {done,value}=await reader.read(); if(done) break;
+      var lines=dec.decode(value).split('\n');
+      for(var line of lines){
+        if(line.startsWith('data: ')){
+          try{
+            var data=JSON.parse(line.slice(6));
+            if(data.content){
+              full+=data.content;
+              if(!rDiv){
+                rDiv=document.createElement('div'); rDiv.className='msg assistant';
+                rBubble=document.createElement('div'); rBubble.className='bubble';
+                var tEl=document.createElement('div'); tEl.className='msg-time'; tEl.textContent=fmt(new Date());
+                var w=document.createElement('div'); w.appendChild(rBubble); w.appendChild(tEl);
+                rDiv.appendChild(w); msgs.appendChild(rDiv);
+              }
+              rBubble.innerHTML=esc(full);
+              msgs.scrollTop=msgs.scrollHeight;
+            }
+          } catch(e){}
+        }
+      }
+    }
+  } catch(e){
+    var t2=document.getElementById('typing'); if(t2) t2.remove();
+    appendMsg('assistant','Maaf, koneksi terputus. Coba kirim ulang.',null);
+  }
+  document.getElementById('send-btn').disabled=false;
+  document.getElementById('msg-input').focus();
+}
+
+document.getElementById('name-input').addEventListener('keydown',function(e){ if(e.key==='Enter') startChat(); });
+document.getElementById('msg-input').addEventListener('input',function(){ this.style.height='auto'; this.style.height=Math.min(this.scrollHeight,96)+'px'; });
+</script>
+</body>
+</html>
